@@ -1,17 +1,17 @@
 export type Reminder = {
   id: number;
-  title: str;
-  message: str;
-  phone_number: str;
+  title: string;
+  message: string;
+  phone_number: string;
   scheduled_time: string;
   status: 'scheduled' | 'completed' | 'failed';
   created_at: string;
 };
 
 export type ReminderCreate = {
-  title: str;
-  message: str;
-  phone_number: str;
+  title: string;
+  message: string;
+  phone_number: string;
   scheduled_time: string; // ISO string
 };
 
