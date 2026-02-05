@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlmodel
+apscheduler
+httpx
+python-multipart
+python-dotenv
+pydantic-settings
