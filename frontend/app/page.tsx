@@ -1,5 +1,11 @@
-import CreateReminderForm from "@/components/create-reminder-form";
-import ReminderList from "@/components/reminder-list";
+import dynamic from 'next/dynamic';
+
+const CreateReminderForm = dynamic(() => import('@/components/create-reminder-form'), {
+  loading: () => <div className="h-64 rounded-xl skeleton bg-slate-200 dark:bg-slate-800" />
+});
+const ReminderList = dynamic(() => import('@/components/reminder-list'), {
+  loading: () => <div className="h-96 rounded-xl skeleton bg-slate-200 dark:bg-slate-800" />
+});
 
 export default function Home() {
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getReminders, deleteReminder, Reminder } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,13 +18,21 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 export default function ReminderList() {
-    const { data: reminders, isLoading, error } = useQuery({
+    const {
+        data,
+        isLoading,
+        error,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage
+    } = useInfiniteQuery({
         queryKey: ['reminders'],
-        queryFn: getReminders,
-        refetchInterval: 5000,
+        queryFn: ({ pageParam = 1 }) => getReminders(pageParam, 20),
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
+        initialPageParam: 1,
     });
 
     const queryClient = useQueryClient();
@@ -34,16 +42,25 @@ export default function ReminderList() {
             toast.success("Reminder deleted");
             queryClient.invalidateQueries({ queryKey: ['reminders'] });
         },
-        onError: () => {
-            toast.error("Failed to delete reminder");
+        onError: (err: any) => {
+            toast.error(err.message || "Failed to delete reminder");
         }
     });
 
     const [activeTab, setActiveTab] = useState("all");
 
+    // Flatten pages and filter locally
+    const filteredReminders = useMemo(() => {
+        const allReminders = data?.pages.flatMap(page => page.data) || [];
+        return allReminders.filter(r => {
+            if (activeTab === "all") return true;
+            return r.status === activeTab;
+        });
+    }, [data, activeTab]);
+
     if (isLoading) {
         return (
-            <Card className="w-full">
+            <Card className="w-full" aria-busy="true" aria-live="polite">
                 <CardHeader>
                     <CardTitle>Upcoming Reminders</CardTitle>
                 </CardHeader>
@@ -58,19 +75,14 @@ export default function ReminderList() {
 
     if (error) {
         return (
-            <Card className="border-red-500">
+            <Card className="border-red-500" role="alert">
                 <CardContent className="pt-6 text-center text-red-500">
                     <AlertCircle className="mx-auto h-8 w-8 mb-2" />
-                    <p>Failed to load reminders. Is the backend running?</p>
+                    <p>{error.message || "Failed to load reminders. Is the backend running?"}</p>
                 </CardContent>
             </Card>
         );
     }
-
-    const filteredReminders = reminders?.filter(r => {
-        if (activeTab === "all") return true;
-        return r.status === activeTab;
-    }) || [];
 
     return (
         <Card className="w-full">
@@ -128,14 +140,27 @@ export default function ReminderList() {
                                                     size="icon"
                                                     onClick={() => deleteMutation.mutate(reminder.id)}
                                                     disabled={deleteMutation.isPending}
+                                                    aria-label={`Delete reminder: ${reminder.title}`}
                                                 >
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                    <Trash2 className="h-4 w-4 text-red-500" aria-hidden="true" />
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                             </Table>
+                        )}
+                        {hasNextPage && (
+                            <div className="flex justify-center mt-4 pt-4 border-t">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => fetchNextPage()}
+                                    disabled={isFetchingNextPage}
+                                    aria-label="Load more reminders"
+                                >
+                                    {isFetchingNextPage ? "Loading..." : "Load More"}
+                                </Button>
+                            </div>
                         )}
                     </TabsContent>
                 </Tabs>
@@ -146,12 +171,12 @@ export default function ReminderList() {
 
 function StatusBadge({ status }: { status: string }) {
     if (status === 'completed') {
-        return <Badge className="bg-green-600 hover:bg-green-700"><CheckCircle className="w-3 h-3 mr-1" /> Completed</Badge>;
+        return <Badge className="bg-green-600 hover:bg-green-700" aria-label="Status: Completed"><CheckCircle className="w-3 h-3 mr-1" aria-hidden="true" /> Completed</Badge>;
     }
     if (status === 'failed') {
-        return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" /> Failed</Badge>;
+        return <Badge variant="destructive" aria-label="Status: Failed"><AlertCircle className="w-3 h-3 mr-1" aria-hidden="true" /> Failed</Badge>;
     }
-    return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200"><Clock className="w-3 h-3 mr-1" /> Scheduled</Badge>;
+    return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200" aria-label="Status: Scheduled"><Clock className="w-3 h-3 mr-1" aria-hidden="true" /> Scheduled</Badge>;
 }
 
 function maskPhone(phone: string) {

@@ -16,7 +16,12 @@ const formSchema = z.object({
     title: z.string().min(2, "Title is too short").max(50),
     message: z.string().min(5, "Message must be at least 5 characters"),
     phone_number: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number (E.164 format preferred)"),
-    scheduled_time: z.string().refine((val) => new Date(val) > new Date(), "Time must be in the future"),
+    scheduled_time: z.string()
+        .refine((val) => {
+            const date = new Date(val);
+            // Allow up to a 5 minute buffer for clock skew or slow typing
+            return date.getTime() > Date.now() - 5 * 60 * 1000;
+        }, "Time must be in the future (plus a small buffer)"),
 });
 
 export default function CreateReminderForm() {
@@ -44,8 +49,9 @@ export default function CreateReminderForm() {
     });
 
     function onSubmit(values: z.infer<typeof formSchema>) {
-        // Convert local datetime-local string to ISO/UTC if needed, or rely on backend.
-        // HTML datetime-local value: "YYYY-MM-DDTHH:mm"
+        // datetime-local input respects user's local timezone.
+        // We parse it into a Javascript Date object which automatically understands local time
+        // and `.toISOString()` consistently outputs the UTC equivalent mapping for the server.
         const date = new Date(values.scheduled_time);
         const isoString = date.toISOString();
 
